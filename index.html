@@ -594,21 +594,36 @@
     </div>
 
     <script>
-        // Data State with LocalStorage Persistence
-        let dashboardData = JSON.parse(localStorage.getItem('mlgsData')) || {
+        // API Endpoint (Change to your live URL if deployed)
+        const API_URL = 'http://localhost:5000/api';
+
+        // Data State
+        let dashboardData = {
             stocks: [],
             finance: {
-                revenue: 124500, expenses: 82300,
-                history: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                    revenue: [15000, 18000, 22000, 19000, 25000, 25500],
-                    expenses: [10000, 12000, 15000, 13000, 16000, 16300]
-                }
+                revenue: 0, expenses: 0,
+                history: { labels: [], revenue: [], expenses: [] }
             }
         };
 
-        function saveData() {
-            localStorage.setItem('mlgsData', JSON.stringify(dashboardData));
+        async function loadData() {
+            try {
+                const [stocksRes, financeRes] = await Promise.all([
+                    fetch(`${API_URL}/stocks`),
+                    fetch(`${API_URL}/finance`)
+                ]);
+                dashboardData.stocks = await stocksRes.json();
+                dashboardData.finance = await financeRes.json();
+                
+                renderStocks();
+                renderFinance();
+                if (document.querySelector('.tab-btn[data-tab="finance"]').classList.contains('active')) {
+                    renderFinanceChart();
+                }
+            } catch (err) {
+                console.error("Failed to load data from database:", err);
+                alert("Error connecting to database. Running in offline mode.");
+            }
         }
 
         let myChart = null;
@@ -617,8 +632,7 @@
 
         // Initialization
         document.addEventListener('DOMContentLoaded', () => {
-            renderStocks();
-            renderFinance();
+            loadData(); // Fetch from MongoDB
             setupTabs();
             setupSearch();
             setupVoice('mic-btn', 'stocks-search');
@@ -711,22 +725,32 @@
                 stopCamera();
             };
 
-            addForm.onsubmit = (e) => {
+            addForm.onsubmit = async (e) => {
                 e.preventDefault();
                 const newItem = {
-                    id: Date.now(),
                     name: document.getElementById('new-name').value,
                     quantity: parseInt(document.getElementById('new-qty').value),
                     price: parseFloat(document.getElementById('new-price').value),
                     image: capturedImageData || null
                 };
-                dashboardData.stocks.unshift(newItem);
-                saveData(); // Save to localStorage
-                renderStocks();
-                addOverlay.classList.remove('active');
-                stopCamera();
-                addForm.reset();
-                resetCameraUI();
+
+                try {
+                    const response = await fetch(`${API_URL}/stocks`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newItem)
+                    });
+                    const savedItem = await response.json();
+                    dashboardData.stocks.unshift(savedItem);
+                    
+                    renderStocks();
+                    addOverlay.classList.remove('active');
+                    stopCamera();
+                    addForm.reset();
+                    resetCameraUI();
+                } catch (err) {
+                    alert("Error saving to database.");
+                }
             };
 
             // Edit Modal elements
@@ -850,7 +874,7 @@
                 const totalValue = (item.quantity * itemPrice).toLocaleString();
                 
                 const card = `
-                    <div class="stock-card" onclick="openEditModal(${item.id})">
+                    <div class="stock-card" onclick="openEditModal('${item._id}')">
                         <div class="stock-card-media">
                             ${item.image ? `<img src="${item.image}">` : '<i class="fas fa-image"></i>'}
                             <span class="badge ${status.class}">${status.label}</span>
@@ -876,10 +900,10 @@
 
         // Edit Modal Logic
         function openEditModal(id) {
-            const item = dashboardData.stocks.find(s => s.id === id);
+            const item = dashboardData.stocks.find(s => s._id === id); // MongoDB uses _id
             if (!item) return;
 
-            document.getElementById('edit-item-id').value = item.id;
+            document.getElementById('edit-item-id').value = item._id;
             document.getElementById('edit-item-name').innerText = item.name;
             document.getElementById('edit-qty').value = item.quantity;
             document.getElementById('edit-price').value = item.price || 0;
@@ -895,27 +919,43 @@
             document.getElementById('edit-modal-overlay').classList.add('active');
         }
 
-        function saveProductEdits() {
-            const id = parseInt(document.getElementById('edit-item-id').value);
-            const index = dashboardData.stocks.findIndex(s => s.id === id);
-            
-            if (index !== -1) {
-                dashboardData.stocks[index].quantity = parseInt(document.getElementById('edit-qty').value);
-                dashboardData.stocks[index].price = parseFloat(document.getElementById('edit-price').value);
+        async function saveProductEdits() {
+            const id = document.getElementById('edit-item-id').value;
+            const updatedData = {
+                quantity: parseInt(document.getElementById('edit-qty').value),
+                price: parseFloat(document.getElementById('edit-price').value)
+            };
+
+            try {
+                const response = await fetch(`${API_URL}/stocks/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData)
+                });
+                const updatedItem = await response.json();
                 
-                saveData(); // Save to localStorage
-                renderStocks();
-                document.getElementById('edit-modal-overlay').classList.remove('active');
+                const index = dashboardData.stocks.findIndex(s => s._id === id);
+                if (index !== -1) {
+                    dashboardData.stocks[index] = updatedItem;
+                    renderStocks();
+                    document.getElementById('edit-modal-overlay').classList.remove('active');
+                }
+            } catch (err) {
+                alert("Error updating database.");
             }
         }
 
-        function deleteItem() {
+        async function deleteItem() {
             if (confirm("Are you sure you want to delete this product?")) {
-                const id = parseInt(document.getElementById('edit-item-id').value);
-                dashboardData.stocks = dashboardData.stocks.filter(s => s.id !== id);
-                saveData(); // Save to localStorage
-                renderStocks();
-                document.getElementById('edit-modal-overlay').classList.remove('active');
+                const id = document.getElementById('edit-item-id').value;
+                try {
+                    await fetch(`${API_URL}/stocks/${id}`, { method: 'DELETE' });
+                    dashboardData.stocks = dashboardData.stocks.filter(s => s._id !== id);
+                    renderStocks();
+                    document.getElementById('edit-modal-overlay').classList.remove('active');
+                } catch (err) {
+                    alert("Error deleting from database.");
+                }
             }
         }
 
