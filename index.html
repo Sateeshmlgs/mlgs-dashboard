@@ -416,11 +416,34 @@
             opacity: 1;
             transform: translateY(0);
         }
+        /* --- Status Indicator --- */
+        .status-pill {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .status-pill.online { color: #22c55e; border-color: rgba(34, 197, 94, 0.3); background: rgba(34, 197, 94, 0.1); }
+        .status-pill.offline { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
     </style>
 </head>
 <body>
 
     <header>
+        <div id="connection-status" class="status-pill">
+            <span class="status-dot"></span>
+            <span class="status-text">Checking...</span>
+        </div>
         <h1 class="header-title">MLGS - Home Accessories</h1>
         <nav class="nav-tabs">
             <button class="tab-btn active" data-tab="stocks"><i class="fas fa-boxes-stacked"></i> Stocks</button>
@@ -612,17 +635,42 @@
                     fetch(`${API_URL}/stocks`),
                     fetch(`${API_URL}/finance`)
                 ]);
+                
+                if (!stocksRes.ok || !financeRes.ok) throw new Error("Server Error");
+
                 dashboardData.stocks = await stocksRes.json();
                 dashboardData.finance = await financeRes.json();
                 
+                updateStatus(true);
+                // Cache to local storage
+                localStorage.setItem('mlgs_backup', JSON.stringify(dashboardData));
+            } catch (err) {
+                console.error("Failed to load from API, falling back to local storage:", err);
+                const backup = localStorage.getItem('mlgs_backup');
+                if (backup) {
+                    dashboardData = JSON.parse(backup);
+                }
+                updateStatus(false);
+            } finally {
                 renderStocks();
                 renderFinance();
                 if (document.querySelector('.tab-btn[data-tab="finance"]').classList.contains('active')) {
                     renderFinanceChart();
                 }
-            } catch (err) {
-                console.error("Failed to load data from database:", err);
-                alert("Error connecting to database. Running in offline mode.");
+            }
+        }
+
+        function updateStatus(isOnline) {
+            const statusEl = document.getElementById('connection-status');
+            const dotEl = statusEl.querySelector('.status-dot');
+            const textEl = statusEl.querySelector('.status-text');
+            
+            if (isOnline) {
+                statusEl.className = 'status-pill online';
+                textEl.innerText = 'Cloud Database';
+            } else {
+                statusEl.className = 'status-pill offline';
+                textEl.innerText = 'Local Storage (Offline)';
             }
         }
 
@@ -742,6 +790,7 @@
                     });
                     const savedItem = await response.json();
                     dashboardData.stocks.unshift(savedItem);
+                    localStorage.setItem('mlgs_backup', JSON.stringify(dashboardData)); // Update backup
                     
                     renderStocks();
                     addOverlay.classList.remove('active');
@@ -937,6 +986,7 @@
                 const index = dashboardData.stocks.findIndex(s => s._id === id);
                 if (index !== -1) {
                     dashboardData.stocks[index] = updatedItem;
+                    localStorage.setItem('mlgs_backup', JSON.stringify(dashboardData)); // Update backup
                     renderStocks();
                     document.getElementById('edit-modal-overlay').classList.remove('active');
                 }
@@ -951,6 +1001,7 @@
                 try {
                     await fetch(`${API_URL}/stocks/${id}`, { method: 'DELETE' });
                     dashboardData.stocks = dashboardData.stocks.filter(s => s._id !== id);
+                    localStorage.setItem('mlgs_backup', JSON.stringify(dashboardData)); // Update backup
                     renderStocks();
                     document.getElementById('edit-modal-overlay').classList.remove('active');
                 } catch (err) {
