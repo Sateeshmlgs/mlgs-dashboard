@@ -374,6 +374,48 @@
             .header-title { font-size: 1.75rem; }
             .toolbar { flex-direction: column; align-items: stretch; }
         }
+
+        /* --- Interactive & Price Styles --- */
+        .stock-card { cursor: pointer; }
+        .stock-price { 
+            display: block; 
+            color: var(--primary); 
+            font-weight: 700; 
+            font-size: 1.1rem;
+            margin-top: 0.25rem;
+        }
+        .total-value {
+            font-size: 0.8rem;
+            color: var(--text-light);
+            font-weight: 500;
+            margin-top: 0.5rem;
+            display: block;
+            border-top: 1px solid var(--border);
+            padding-top: 0.5rem;
+        }
+        .edit-badge {
+            background: rgba(34, 197, 94, 0.1);
+            color: var(--primary);
+            padding: 4px 12px;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+
+        /* --- Transitions --- */
+        .tab-content {
+            display: none;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .tab-content.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -461,9 +503,18 @@
                 <div class="form-group">
                     <label class="form-label">Quantity</label>
                     <div class="stepper">
-                        <button type="button" class="stepper-btn" onclick="adjustQty(-1)"><i class="fas fa-minus"></i></button>
+                        <button type="button" class="stepper-btn" onclick="adjustAddQty(-1)"><i class="fas fa-minus"></i></button>
                         <input type="number" id="new-qty" class="form-input stepper-input" value="1" min="0" required>
-                        <button type="button" class="stepper-btn" onclick="adjustQty(1)"><i class="fas fa-plus"></i></button>
+                        <button type="button" class="stepper-btn" onclick="adjustAddQty(1)"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Unit Price ($)</label>
+                    <div class="stepper">
+                        <button type="button" class="stepper-btn" onclick="adjustAddPrice(-5)"><i class="fas fa-minus"></i></button>
+                        <input type="number" id="new-price" class="form-input stepper-input" value="0" min="0" step="1" required>
+                        <button type="button" class="stepper-btn" onclick="adjustAddPrice(5)"><i class="fas fa-plus"></i></button>
                     </div>
                 </div>
 
@@ -498,10 +549,54 @@
         </div>
     </div>
 
+    <!-- Modal for Editing/Viewing Stock -->
+    <div id="edit-modal-overlay" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div>
+                    <span class="edit-badge">Product Details</span>
+                    <h3 class="modal-title" id="edit-item-name">Product Name</h3>
+                </div>
+                <button class="close-modal" id="close-edit-modal">&times;</button>
+            </div>
+            
+            <div id="edit-img-preview" class="preview-img-container" style="display: block; margin-bottom: 2rem;">
+                <img id="detail-image" src="" alt="Product">
+            </div>
+
+            <form id="edit-stock-form">
+                <input type="hidden" id="edit-item-id">
+                
+                <div class="form-group">
+                    <label class="form-label">Modify Quantity</label>
+                    <div class="stepper">
+                        <button type="button" class="stepper-btn" onclick="adjustEditQty(-1)"><i class="fas fa-minus"></i></button>
+                        <input type="number" id="edit-qty" class="form-input stepper-input" required>
+                        <button type="button" class="stepper-btn" onclick="adjustEditQty(1)"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Modify Unit Price ($)</label>
+                    <div class="stepper">
+                        <button type="button" class="stepper-btn" onclick="adjustEditPrice(-5)"><i class="fas fa-minus"></i></button>
+                        <input type="number" id="edit-price" class="form-input stepper-input" step="1" required>
+                        <button type="button" class="stepper-btn" onclick="adjustEditPrice(5)"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="submit" class="submit-btn">Update Product</button>
+                    <button type="button" class="submit-btn" style="background: var(--danger); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);" onclick="deleteItem()">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
-        // Data State
-        let dashboardData = {
-            stocks: [], // Cleared items
+        // Data State with LocalStorage Persistence
+        let dashboardData = JSON.parse(localStorage.getItem('mlgsData')) || {
+            stocks: [],
             finance: {
                 revenue: 124500, expenses: 82300,
                 history: {
@@ -511,6 +606,10 @@
                 }
             }
         };
+
+        function saveData() {
+            localStorage.setItem('mlgsData', JSON.stringify(dashboardData));
+        }
 
         let myChart = null;
         let stream = null;
@@ -534,10 +633,24 @@
             tabs.forEach(tab => {
                 tab.addEventListener('click', () => {
                     const target = tab.getAttribute('data-tab');
+                    
+                    // Update buttons
                     document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                     tab.classList.add('active');
-                    document.getElementById(target).classList.add('active');
+
+                    // Switch content with fade effect
+                    const contents = document.querySelectorAll('.tab-content');
+                    contents.forEach(c => {
+                        c.style.display = 'none';
+                        c.classList.remove('active');
+                    });
+
+                    const activeContent = document.getElementById(target);
+                    activeContent.style.display = 'block';
+                    // Trigger reflow for transition
+                    activeContent.offsetHeight; 
+                    activeContent.classList.add('active');
+
                     if (target === 'finance') renderFinanceChart();
                 });
             });
@@ -584,42 +697,74 @@
             recognition.onend = () => micBtn.classList.remove('listening');
         }
 
-        // Add Modal & Camera
+        // Add & Edit Modals setup
         function setupModal() {
-            const overlay = document.getElementById('add-modal-overlay');
-            const openBtn = document.getElementById('open-add-modal');
-            const closeBtn = document.getElementById('close-add-modal');
-            const form = document.getElementById('add-stock-form');
+            // Add Modal elements
+            const addOverlay = document.getElementById('add-modal-overlay');
+            const openAddBtn = document.getElementById('open-add-modal');
+            const closeAddBtn = document.getElementById('close-add-modal');
+            const addForm = document.getElementById('add-stock-form');
 
-            openBtn.onclick = () => overlay.classList.add('active');
-            closeBtn.onclick = () => {
-                overlay.classList.remove('active');
+            openAddBtn.onclick = () => addOverlay.classList.add('active');
+            closeAddBtn.onclick = () => {
+                addOverlay.classList.remove('active');
                 stopCamera();
             };
 
-            form.onsubmit = (e) => {
+            addForm.onsubmit = (e) => {
                 e.preventDefault();
                 const newItem = {
                     id: Date.now(),
                     name: document.getElementById('new-name').value,
                     quantity: parseInt(document.getElementById('new-qty').value),
+                    price: parseFloat(document.getElementById('new-price').value),
                     image: capturedImageData || null
                 };
                 dashboardData.stocks.unshift(newItem);
+                saveData(); // Save to localStorage
                 renderStocks();
-                overlay.classList.remove('active');
+                addOverlay.classList.remove('active');
                 stopCamera();
-                form.reset();
+                addForm.reset();
                 resetCameraUI();
+            };
+
+            // Edit Modal elements
+            const editOverlay = document.getElementById('edit-modal-overlay');
+            const closeEditBtn = document.getElementById('close-edit-modal');
+            const editForm = document.getElementById('edit-stock-form');
+
+            closeEditBtn.onclick = () => editOverlay.classList.remove('active');
+            
+            editForm.onsubmit = (e) => {
+                e.preventDefault();
+                saveProductEdits();
             };
         }
 
-        // Quantity Stepper
-        function adjustQty(amount) {
+        // Stepper Handlers
+        function adjustAddQty(amount) {
             const input = document.getElementById('new-qty');
             let val = parseInt(input.value) + amount;
-            if (val < 0) val = 0;
-            input.value = val;
+            input.value = Math.max(0, val);
+        }
+
+        function adjustAddPrice(amount) {
+            const input = document.getElementById('new-price');
+            let val = parseFloat(input.value) + amount;
+            input.value = Math.max(0, val);
+        }
+
+        function adjustEditQty(amount) {
+            const input = document.getElementById('edit-qty');
+            let val = parseInt(input.value) + amount;
+            input.value = Math.max(0, val);
+        }
+
+        function adjustEditPrice(amount) {
+            const input = document.getElementById('edit-price');
+            let val = parseFloat(input.value) + amount;
+            input.value = Math.max(0, val);
         }
 
         // Camera Logic
@@ -701,23 +846,77 @@
 
             data.forEach(item => {
                 const status = calculateStatus(item.quantity);
+                const itemPrice = item.price || 0;
+                const totalValue = (item.quantity * itemPrice).toLocaleString();
+                
                 const card = `
-                    <div class="stock-card">
+                    <div class="stock-card" onclick="openEditModal(${item.id})">
                         <div class="stock-card-media">
                             ${item.image ? `<img src="${item.image}">` : '<i class="fas fa-image"></i>'}
                             <span class="badge ${status.class}">${status.label}</span>
                         </div>
                         <div class="stock-card-content">
                             <h3 class="stock-name">${item.name}</h3>
-                            <div class="stock-qty">${item.quantity} <span>Units</span></div>
+                            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+                                <div class="stock-qty">${item.quantity} <span>Units</span></div>
+                                <span class="stock-price">$${itemPrice.toLocaleString()}</span>
+                            </div>
                             <div style="height: 6px; background: #f1f5f9; margin-top: 1rem; border-radius: 3px; overflow: hidden;">
                                 <div style="height: 100%; width: ${Math.min(item.quantity * 5, 100)}%; background: ${status.hex}; transition: width 0.5s;"></div>
+                            </div>
+                            <div class="total-value">
+                                Inventory Value: $${totalValue}
                             </div>
                         </div>
                     </div>
                 `;
                 container.innerHTML += card;
             });
+        }
+
+        // Edit Modal Logic
+        function openEditModal(id) {
+            const item = dashboardData.stocks.find(s => s.id === id);
+            if (!item) return;
+
+            document.getElementById('edit-item-id').value = item.id;
+            document.getElementById('edit-item-name').innerText = item.name;
+            document.getElementById('edit-qty').value = item.quantity;
+            document.getElementById('edit-price').value = item.price || 0;
+            
+            const detailImg = document.getElementById('detail-image');
+            if (item.image) {
+                detailImg.src = item.image;
+                detailImg.parentElement.style.display = 'block';
+            } else {
+                detailImg.parentElement.style.display = 'none';
+            }
+
+            document.getElementById('edit-modal-overlay').classList.add('active');
+        }
+
+        function saveProductEdits() {
+            const id = parseInt(document.getElementById('edit-item-id').value);
+            const index = dashboardData.stocks.findIndex(s => s.id === id);
+            
+            if (index !== -1) {
+                dashboardData.stocks[index].quantity = parseInt(document.getElementById('edit-qty').value);
+                dashboardData.stocks[index].price = parseFloat(document.getElementById('edit-price').value);
+                
+                saveData(); // Save to localStorage
+                renderStocks();
+                document.getElementById('edit-modal-overlay').classList.remove('active');
+            }
+        }
+
+        function deleteItem() {
+            if (confirm("Are you sure you want to delete this product?")) {
+                const id = parseInt(document.getElementById('edit-item-id').value);
+                dashboardData.stocks = dashboardData.stocks.filter(s => s.id !== id);
+                saveData(); // Save to localStorage
+                renderStocks();
+                document.getElementById('edit-modal-overlay').classList.remove('active');
+            }
         }
 
         function calculateStatus(qty) {
