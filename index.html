@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MLGS - Home Accessories Dashboard</title>
+    <meta name="description" content="Professional dashboard for MLGS Home Accessories to manage stocks and finance.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #22c55e;
+            --primary-dark: #16a34a;
+            --primary-light: #dcfce7;
+            --secondary: #1e293b;
+            --background: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #334155;
+            --text-light: #64748b;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --border: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            --radius: 12px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--background);
+            color: var(--text-main);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- Header --- */
+        header {
+            background-color: var(--secondary);
+            color: white;
+            padding: 2.5rem 1rem;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background-image: radial-gradient(circle at 50% -20%, #334155 0%, #1e293b 100%);
+        }
+
+        .header-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            margin-bottom: 1.5rem;
+            color: #ffffff;
+        }
+
+        .nav-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .tab-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            padding: 0.75rem 1.75rem;
+            border-radius: 99px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 10px 15px -3px rgba(34, 197, 94, 0.4);
+        }
+
+        /* --- Toolbars --- */
+        .toolbar {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .search-wrapper {
+            position: relative;
+            flex-grow: 1;
+            min-width: 280px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.875rem 3.5rem 0.875rem 1.25rem;
+            border-radius: 99px;
+            border: 1px solid var(--border);
+            font-size: 1rem;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px var(--primary-light);
+        }
+
+        .mic-btn {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            color: var(--text-light);
+            cursor: pointer;
+            font-size: 1.25rem;
+            padding: 8px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .mic-btn:hover { color: var(--primary); background: var(--background); }
+        .mic-btn.listening { color: var(--danger); animation: pulse-red 1.5s infinite; }
+
+        @keyframes pulse-red {
+            0% { transform: translateY(-50%) scale(1); }
+            50% { transform: translateY(-50%) scale(1.1); text-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
+            100% { transform: translateY(-50%) scale(1); }
+        }
+
+        .add-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.875rem 1.5rem;
+            border-radius: 99px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .add-btn:hover { background: var(--primary-dark); transform: translateY(-2px); }
+
+        /* --- Stock Cards --- */
+        .stocks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .stock-card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .stock-card:hover { transform: translateY(-8px); box-shadow: var(--shadow-lg); border-color: var(--primary); }
+
+        .stock-card-media {
+            height: 200px;
+            background: #f1f5f9;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stock-card-media img { width: 100%; height: 100%; object-fit: cover; }
+        .stock-card-media i { font-size: 3rem; color: #cbd5e1; }
+
+        .stock-card-content { padding: 1.5rem; }
+        .stock-name { font-size: 1.25rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.5rem; }
+        .stock-qty { font-size: 2rem; font-weight: 800; color: var(--secondary); }
+        .stock-qty span { font-size: 0.875rem; color: var(--text-light); font-weight: 500; }
+
+        .badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 99px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* --- Modal --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(30, 41, 59, 0.8);
+            backdrop-filter: blur(8px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 1rem;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: white;
+            width: 100%;
+            max-width: 550px;
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: var(--shadow-lg);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .modal-title { font-size: 1.75rem; font-weight: 700; color: var(--secondary); }
+        .close-modal { background: none; border: none; font-size: 2rem; color: var(--text-light); cursor: pointer; }
+
+        .form-group { margin-bottom: 1.5rem; }
+        .form-label { display: block; font-size: 0.9rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--secondary); }
+        
+        /* Name Input Wrapper */
+        .input-with-icon { position: relative; }
+        .input-with-icon .form-input { padding-right: 3rem; }
+        .input-with-icon .mic-btn { right: 10px; top: 50%; transform: translateY(-50%); }
+
+        .form-input {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            outline: none;
+            font-family: inherit;
+        }
+
+        .form-input:focus { border-color: var(--primary); }
+
+        /* Stepper UI */
+        .stepper { display: flex; align-items: center; gap: 0.5rem; }
+        .stepper-btn {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: white;
+            cursor: pointer;
+            font-size: 1.25rem;
+            color: var(--secondary);
+            transition: all 0.2s;
+        }
+        .stepper-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+        .stepper-input { width: 80px; text-align: center; font-weight: 700; font-size: 1.1rem; }
+
+        /* Camera UI */
+        .camera-section {
+            background: #f8fafc;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .camera-preview-container {
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .camera-preview-container video { width: 100%; height: 100%; object-fit: cover; }
+        
+        .capture-btn {
+            background: var(--secondary);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
+        .preview-img-container {
+            width: 100%;
+            aspect-ratio: 4/3;
+            border-radius: 10px;
+            overflow: hidden;
+            display: none;
+            margin-bottom: 1rem;
+            border: 2px solid var(--primary);
+        }
+
+        .preview-img-container img { width: 100%; height: 100%; object-fit: cover; }
+
+        .submit-btn {
+            width: 100%;
+            padding: 1.125rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 1.1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+            margin-top: 1rem;
+        }
+
+        /* --- Finance --- */
+        .finance-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .finance-card {
+            background: var(--card-bg);
+            padding: 2rem;
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+            border: 1px solid var(--border);
+        }
+
+        .finance-icon { width: 64px; height: 64px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 1.75rem; }
+        .icon-revenue { background: #dcfce7; color: #16a34a; }
+        .icon-expenses { background: #fee2e2; color: #dc2626; }
+        .icon-profit { background: #e0f2fe; color: #0284c7; }
+
+        .chart-wrapper {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            height: 450px;
+        }
+
+        @media (max-width: 600px) {
+            .header-title { font-size: 1.75rem; }
+            .toolbar { flex-direction: column; align-items: stretch; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1 class="header-title">MLGS - Home Accessories</h1>
+        <nav class="nav-tabs">
+            <button class="tab-btn active" data-tab="stocks"><i class="fas fa-boxes-stacked"></i> Stocks</button>
+            <button class="tab-btn" data-tab="finance"><i class="fas fa-chart-pie"></i> Finance</button>
+        </nav>
+    </header>
+
+    <main>
+        <!-- Stocks Section -->
+        <section id="stocks" class="tab-content active">
+            <div class="toolbar">
+                <div class="search-wrapper">
+                    <input type="text" id="stocks-search" class="search-input" placeholder="Search home accessories...">
+                    <button id="mic-btn" class="mic-btn" title="Voice Search">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                </div>
+                <button class="add-btn" id="open-add-modal">
+                    <i class="fas fa-plus"></i> Add Item
+                </button>
+            </div>
+            
+            <div id="stocks-container" class="stocks-grid">
+                <!-- Stock cards injected here -->
+            </div>
+        </section>
+
+        <!-- Finance Section -->
+        <section id="finance" class="tab-content">
+            <div class="finance-summary">
+                <div class="finance-card">
+                    <div class="finance-icon icon-revenue"><i class="fas fa-vault"></i></div>
+                    <div class="finance-info">
+                        <h3>Total Revenue</h3>
+                        <div class="finance-value" id="disp-revenue">$0</div>
+                    </div>
+                </div>
+                <div class="finance-card">
+                    <div class="finance-icon icon-expenses"><i class="fas fa-file-invoice-dollar"></i></div>
+                    <div class="finance-info">
+                        <h3>Total Expenses</h3>
+                        <div class="finance-value" id="disp-expenses">$0</div>
+                    </div>
+                </div>
+                <div class="finance-card">
+                    <div class="finance-icon icon-profit"><i class="fas fa-chart-line"></i></div>
+                    <div class="finance-info">
+                        <h3>Net Profit</h3>
+                        <div class="finance-value" id="disp-profit" style="color: var(--primary);">$0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-wrapper">
+                <h3 style="margin-bottom: 1.5rem;">Quarterly Performance</h3>
+                <canvas id="financeChart"></canvas>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal for Adding Stock -->
+    <div id="add-modal-overlay" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Product Entry</h3>
+                <button class="close-modal" id="close-add-modal">&times;</button>
+            </div>
+            <form id="add-stock-form">
+                
+                <div class="form-group">
+                    <label class="form-label">Product Name</label>
+                    <div class="input-with-icon">
+                        <input type="text" id="new-name" class="form-input" placeholder="Manual entry or tap mic..." required>
+                        <button type="button" id="modal-mic-btn" class="mic-btn">
+                            <i class="fas fa-microphone"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Quantity</label>
+                    <div class="stepper">
+                        <button type="button" class="stepper-btn" onclick="adjustQty(-1)"><i class="fas fa-minus"></i></button>
+                        <input type="number" id="new-qty" class="form-input stepper-input" value="1" min="0" required>
+                        <button type="button" class="stepper-btn" onclick="adjustQty(1)"><i class="fas fa-plus"></i></button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Product Photo</label>
+                    <div class="camera-section">
+                        <!-- Preview for taken photo -->
+                        <div id="img-preview-container" class="preview-img-container">
+                            <img id="capture-preview" src="">
+                        </div>
+
+                        <!-- Live Video Stream -->
+                        <div id="camera-container" class="camera-preview-container">
+                            <video id="video" autoplay playsinline></video>
+                        </div>
+
+                        <button type="button" id="start-camera-btn" class="capture-btn">
+                            <i class="fas fa-camera"></i> Start Camera
+                        </button>
+                        <button type="button" id="snap-btn" class="capture-btn" style="display:none; background: var(--primary);">
+                            <i class="fas fa-circle"></i> Capture Photo
+                        </button>
+                        <button type="button" id="retake-btn" class="capture-btn" style="display:none; background: var(--danger);">
+                            <i class="fas fa-redo"></i> Retake
+                        </button>
+                    </div>
+                </div>
+
+                <canvas id="snapshot-canvas" style="display:none;"></canvas>
+                <button type="submit" class="submit-btn" id="submit-btn">Save Product</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Data State
+        let dashboardData = {
+            stocks: [], // Cleared items
+            finance: {
+                revenue: 124500, expenses: 82300,
+                history: {
+                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                    revenue: [15000, 18000, 22000, 19000, 25000, 25500],
+                    expenses: [10000, 12000, 15000, 13000, 16000, 16300]
+                }
+            }
+        };
+
+        let myChart = null;
+        let stream = null;
+        let capturedImageData = null;
+
+        // Initialization
+        document.addEventListener('DOMContentLoaded', () => {
+            renderStocks();
+            renderFinance();
+            setupTabs();
+            setupSearch();
+            setupVoice('mic-btn', 'stocks-search');
+            setupVoice('modal-mic-btn', 'new-name');
+            setupModal();
+            setupCamera();
+        });
+
+        // Tab Switching
+        function setupTabs() {
+            const tabs = document.querySelectorAll('.tab-btn');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const target = tab.getAttribute('data-tab');
+                    document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById(target).classList.add('active');
+                    if (target === 'finance') renderFinanceChart();
+                });
+            });
+        }
+
+        // Search Logic
+        function setupSearch() {
+            const searchInput = document.getElementById('stocks-search');
+            searchInput.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                const filtered = dashboardData.stocks.filter(s => s.name.toLowerCase().includes(term));
+                renderStocks(filtered);
+            });
+        }
+
+        // Voice Recognition
+        function setupVoice(btnId, targetId) {
+            const micBtn = document.getElementById(btnId);
+            const targetInput = document.getElementById(targetId);
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+            if (!SpeechRecognition) {
+                micBtn.style.display = 'none';
+                return;
+            }
+
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.lang = 'en-US';
+
+            micBtn.addEventListener('click', () => {
+                recognition.start();
+                micBtn.classList.add('listening');
+            });
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                targetInput.value = transcript;
+                targetInput.dispatchEvent(new Event('input'));
+                micBtn.classList.remove('listening');
+            };
+
+            recognition.onerror = () => micBtn.classList.remove('listening');
+            recognition.onend = () => micBtn.classList.remove('listening');
+        }
+
+        // Add Modal & Camera
+        function setupModal() {
+            const overlay = document.getElementById('add-modal-overlay');
+            const openBtn = document.getElementById('open-add-modal');
+            const closeBtn = document.getElementById('close-add-modal');
+            const form = document.getElementById('add-stock-form');
+
+            openBtn.onclick = () => overlay.classList.add('active');
+            closeBtn.onclick = () => {
+                overlay.classList.remove('active');
+                stopCamera();
+            };
+
+            form.onsubmit = (e) => {
+                e.preventDefault();
+                const newItem = {
+                    id: Date.now(),
+                    name: document.getElementById('new-name').value,
+                    quantity: parseInt(document.getElementById('new-qty').value),
+                    image: capturedImageData || null
+                };
+                dashboardData.stocks.unshift(newItem);
+                renderStocks();
+                overlay.classList.remove('active');
+                stopCamera();
+                form.reset();
+                resetCameraUI();
+            };
+        }
+
+        // Quantity Stepper
+        function adjustQty(amount) {
+            const input = document.getElementById('new-qty');
+            let val = parseInt(input.value) + amount;
+            if (val < 0) val = 0;
+            input.value = val;
+        }
+
+        // Camera Logic
+        function setupCamera() {
+            const startBtn = document.getElementById('start-camera-btn');
+            const snapBtn = document.getElementById('snap-btn');
+            const retakeBtn = document.getElementById('retake-btn');
+            const video = document.getElementById('video');
+            const canvas = document.getElementById('snapshot-canvas');
+            const videoContainer = document.getElementById('camera-container');
+            const previewContainer = document.getElementById('img-preview-container');
+            const previewImg = document.getElementById('capture-preview');
+
+            startBtn.onclick = async () => {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { facingMode: 'environment' } 
+                    });
+                    video.srcObject = stream;
+                    videoContainer.style.display = 'block';
+                    startBtn.style.display = 'none';
+                    snapBtn.style.display = 'block';
+                } catch (err) {
+                    alert("Unable to access camera. Please check permissions.");
+                }
+            };
+
+            snapBtn.onclick = () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                capturedImageData = canvas.toDataURL('image/png');
+                
+                previewImg.src = capturedImageData;
+                previewContainer.style.display = 'block';
+                videoContainer.style.display = 'none';
+                snapBtn.style.display = 'none';
+                retakeBtn.style.display = 'block';
+                stopCamera();
+            };
+
+            retakeBtn.onclick = () => {
+                resetCameraUI();
+                startBtn.click();
+            };
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+        }
+
+        function resetCameraUI() {
+            document.getElementById('camera-container').style.display = 'none';
+            document.getElementById('img-preview-container').style.display = 'none';
+            document.getElementById('start-camera-btn').style.display = 'block';
+            document.getElementById('snap-btn').style.display = 'none';
+            document.getElementById('retake-btn').style.display = 'none';
+            capturedImageData = null;
+        }
+
+        // Render Functions
+        function renderStocks(data = dashboardData.stocks) {
+            const container = document.getElementById('stocks-container');
+            container.innerHTML = '';
+            
+            if (data.length === 0) {
+                container.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align: center; padding: 4rem 2rem; background: white; border-radius: 12px; border: 2px dashed var(--border);">
+                        <i class="fas fa-box-open" style="font-size: 3rem; color: var(--text-light); margin-bottom: 1rem; display: block;"></i>
+                        <h3 style="color: var(--secondary); margin-bottom: 0.5rem;">Your Inventory is Empty</h3>
+                        <p style="color: var(--text-light);">Click "Add Item" and take a photo to start tracking.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            data.forEach(item => {
+                const status = calculateStatus(item.quantity);
+                const card = `
+                    <div class="stock-card">
+                        <div class="stock-card-media">
+                            ${item.image ? `<img src="${item.image}">` : '<i class="fas fa-image"></i>'}
+                            <span class="badge ${status.class}">${status.label}</span>
+                        </div>
+                        <div class="stock-card-content">
+                            <h3 class="stock-name">${item.name}</h3>
+                            <div class="stock-qty">${item.quantity} <span>Units</span></div>
+                            <div style="height: 6px; background: #f1f5f9; margin-top: 1rem; border-radius: 3px; overflow: hidden;">
+                                <div style="height: 100%; width: ${Math.min(item.quantity * 5, 100)}%; background: ${status.hex}; transition: width 0.5s;"></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += card;
+            });
+        }
+
+        function calculateStatus(qty) {
+            if (qty === 0) return { label: 'Out of Stock', class: 'badge-danger', hex: '#ef4444' };
+            if (qty <= 5) return { label: 'Low Stock', class: 'badge-warning', hex: '#f59e0b' };
+            return { label: 'Available', class: 'badge-success', hex: '#22c55e' };
+        }
+
+        function renderFinance() {
+            const { revenue, expenses } = dashboardData.finance;
+            const profit = revenue - expenses;
+            document.getElementById('disp-revenue').innerText = '$' + revenue.toLocaleString();
+            document.getElementById('disp-expenses').innerText = '$' + expenses.toLocaleString();
+            document.getElementById('disp-profit').innerText = '$' + profit.toLocaleString();
+        }
+
+        function renderFinanceChart() {
+            if (myChart) myChart.destroy();
+            const ctx = document.getElementById('financeChart').getContext('2d');
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dashboardData.finance.history.labels,
+                    datasets: [
+                        { label: 'Revenue', data: dashboardData.finance.history.revenue, borderColor: '#22c55e', fill: true, backgroundColor: 'rgba(34, 197, 94, 0.1)', tension: 0.4 },
+                        { label: 'Expenses', data: dashboardData.finance.history.expenses, borderColor: '#ef4444', tension: 0.4 }
+                    ]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        }
+    </script>
+</body>
+</html>
