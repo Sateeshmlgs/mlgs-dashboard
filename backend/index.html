@@ -784,7 +784,7 @@
         };
 
         const getHeaders = () => {
-            const token = localStorage.getItem('mlgs_token');
+            const token = sessionStorage.getItem('mlgs_token');
             return {
                 'Content-Type': 'application/json',
                 'x-auth-token': token || ''
@@ -793,7 +793,7 @@
 
         async function loadData() {
             try {
-                const token = localStorage.getItem('mlgs_token');
+                const token = sessionStorage.getItem('mlgs_token');
                 if (!token) return showAuth();
 
                 const [stocksRes, financeRes] = await Promise.all([
@@ -812,10 +812,10 @@
                 
                 updateStatus(true);
                 hideAuth();
-                localStorage.setItem('mlgs_backup', JSON.stringify(dashboardData));
+                sessionStorage.setItem('mlgs_backup', JSON.stringify(dashboardData));
             } catch (err) {
                 console.error("Failed to load:", err);
-                const backup = localStorage.getItem('mlgs_backup');
+                const backup = sessionStorage.getItem('mlgs_backup');
                 if (backup) dashboardData = JSON.parse(backup);
                 updateStatus(false);
             } finally {
@@ -848,7 +848,7 @@
         // Initialization
         document.addEventListener('DOMContentLoaded', () => {
             setupAuthHandlers();
-            const token = localStorage.getItem('mlgs_token');
+            const token = sessionStorage.getItem('mlgs_token');
             if (token) {
                 hideAuth();
                 loadData();
@@ -893,8 +893,8 @@
                     });
                     const data = await res.json();
                     if (data.token) {
-                        localStorage.setItem('mlgs_token', data.token);
-                        localStorage.setItem('mlgs_user', JSON.stringify(data.user));
+                        sessionStorage.setItem('mlgs_token', data.token);
+                        sessionStorage.setItem('mlgs_user', JSON.stringify(data.user));
                         loadData();
                     } else {
                         alert(data.error || "Login failed");
@@ -918,8 +918,8 @@
                     });
                     const data = await res.json();
                     if (data.token) {
-                        localStorage.setItem('mlgs_token', data.token);
-                        localStorage.setItem('mlgs_user', JSON.stringify(data.user));
+                        sessionStorage.setItem('mlgs_token', data.token);
+                        sessionStorage.setItem('mlgs_user', JSON.stringify(data.user));
                         loadData();
                     } else {
                         alert(data.error || "Signup failed");
@@ -937,7 +937,7 @@
 
         function hideAuth() {
             document.getElementById('auth-overlay').style.display = 'none';
-            const user = JSON.parse(localStorage.getItem('mlgs_user'));
+            const user = JSON.parse(sessionStorage.getItem('mlgs_user'));
             if (user) {
                 document.getElementById('user-display').style.display = 'flex';
                 document.getElementById('user-name').innerText = user.name;
@@ -945,9 +945,9 @@
         }
 
         function logout() {
-            localStorage.removeItem('mlgs_token');
-            localStorage.removeItem('mlgs_user');
-            localStorage.removeItem('mlgs_backup');
+            sessionStorage.removeItem('mlgs_token');
+            sessionStorage.removeItem('mlgs_user');
+            sessionStorage.removeItem('mlgs_backup');
             location.reload();
         }
 
@@ -1058,7 +1058,7 @@
                     }
                     
                     dashboardData.stocks.unshift(data);
-                    localStorage.setItem('mlgs_backup', JSON.stringify(dashboardData)); // Update backup
+                    sessionStorage.setItem('mlgs_backup', JSON.stringify(dashboardData)); // Update backup
                     
                     renderStocks();
                     addOverlay.classList.remove('active');
