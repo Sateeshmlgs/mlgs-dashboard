@@ -2,69 +2,111 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const auth = require('./middleware/auth');
 const Stock = require('./models/Stock');
 const Finance = require('./models/Finance');
+const User = require('./models/User');
+
+const path = require('path');
+const FRONTEND_PATH = path.resolve(__dirname, '..');
 
 const app = express();
-app.use(express.json({ limit: '50mb' })); // Higher limit for Base64 images
+app.use(express.json({ limit: '50mb' }));
 app.use(cors());
 
-mongoose.connect(process.env.MONGO_URI, {
-    serverSelectionTimeoutMS: 5000,
-})
-    .then(() => {
-        console.log('Connected to MongoDB Atlas');
-        seedStocks();
-    })
-    .catch(err => {
-        console.error('MongoDB connection error:', err);
-        process.exit(1); // Exit if cannot connect
-    });
+// Serve static files from the root directory
+app.use(express.static(FRONTEND_PATH));
 
-// --- Health Check ---
-app.get('/api/health', (req, res) => {
-    res.json({ 
-        health: 'ok', 
-        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-        timestamp: new Date()
-    });
+// Specifically serve index.html for the root route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(FRONTEND_PATH, 'index.html'));
 });
 
-// Seed Stocks if empty
-async function seedStocks() {
+// Catch-all route to serve index.html for any non-API request (SPA support)
+app.get(/.*/, (req, res, next) => {
+    if (req.url.startsWith('/api')) return next();
+    res.sendFile(path.join(FRONTEND_PATH, 'index.html'));
+});
+
+mongoose.connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 30000,
+})
+    .then(() => console.log('Connected to MongoDB Atlas'))
+    .catch(err => {
+        console.error('MongoDB connection error:', err);
+        process.exit(1);
+    });
+
+// --- Auth Routes ---
+
+// Register
+app.post('/api/auth/register', async (req, res) => {
     try {
-        const count = await Stock.countDocuments();
-        if (count === 0) {
-            await Stock.create([
-                { name: "Luxury Silk CurtainsSet (Beige)", quantity: 12, price: 85 },
-                { name: "Aromatic Sandalwood Candle", quantity: 45, price: 25 },
-                { name: "Handcrafted Ceramic Vase", quantity: 8, price: 55 },
-                { name: "LED Ambient Mood Lamp", quantity: 20, price: 40 }
-            ]);
-            console.log("Database seeded with sample MLGS products.");
-        }
+        const { name, email, password } = req.body;
+        let user = await User.findOne({ email });
+        if (user) return res.status(400).json({ error: 'User already exists' });
+
+        user = new User({ name, email, password });
+        await user.save();
+
+        const payload = { user: { id: user.id } };
+        jwt.sign(payload, process.env.JWT_SECRET || 'mlgs_secret_key_2024', { expiresIn: '7d' }, (err, token) => {
+            if (err) throw err;
+            res.json({ token, user: { name: user.name, email: user.email } });
+        });
     } catch (err) {
-        console.error("Seeding error:", err);
+        console.error("Registration Error Stack:", err.stack);
+        res.status(500).json({ error: err.message });
     }
-}
+});
 
-
-// --- Stocks API ---
-
-// Get all stocks
-app.get('/api/stocks', async (req, res) => {
+// Login
+app.post('/api/auth/login', async (req, res) => {
     try {
-        const stocks = await Stock.find().sort({ createdAt: -1 });
+        const { email, password } = req.body;
+        const user = await User.findOne({ email });
+        if (!user) return res.status(400).json({ error: 'Invalid credentials' });
+
+        const isMatch = await user.comparePassword(password);
+        if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+
+        const payload = { user: { id: user.id } };
+        jwt.sign(payload, process.env.JWT_SECRET || 'mlgs_secret_key_2024', { expiresIn: '7d' }, (err, token) => {
+            if (err) throw err;
+            res.json({ token, user: { name: user.name, email: user.email } });
+        });
+    } catch (err) {
+        console.error("Login Error Stack:", err.stack);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get User Data
+app.get('/api/auth/user', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password');
+        res.json(user);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- Stocks API (Protected) ---
+
+app.get('/api/stocks', auth, async (req, res) => {
+    try {
+        const stocks = await Stock.find({ user: req.user.id }).sort({ createdAt: -1 });
         res.json(stocks);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Add new stock
-app.post('/api/stocks', async (req, res) => {
+app.post('/api/stocks', auth, async (req, res) => {
     try {
-        const newStock = new Stock(req.body);
+        const newStock = new Stock({ ...req.body, user: req.user.id });
         const savedStock = await newStock.save();
         res.status(201).json(savedStock);
     } catch (err) {
@@ -72,41 +114,39 @@ app.post('/api/stocks', async (req, res) => {
     }
 });
 
-// Update stock
-app.put('/api/stocks/:id', async (req, res) => {
+app.put('/api/stocks/:id', auth, async (req, res) => {
     try {
-        const updatedStock = await Stock.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        const updatedStock = await Stock.findOneAndUpdate(
+            { _id: req.params.id, user: req.user.id },
+            req.body,
+            { new: true }
+        );
         res.json(updatedStock);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Delete stock
-app.delete('/api/stocks/:id', async (req, res) => {
+app.delete('/api/stocks/:id', auth, async (req, res) => {
     try {
-        await Stock.findByIdAndDelete(req.params.id);
+        await Stock.findOneAndDelete({ _id: req.params.id, user: req.user.id });
         res.json({ message: 'Stock deleted' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// --- Finance API ---
+// --- Finance API (Protected) ---
 
-// Get finance data
-app.get('/api/finance', async (req, res) => {
+app.get('/api/finance', auth, async (req, res) => {
     try {
-        let finance = await Finance.findOne();
+        let finance = await Finance.findOne({ user: req.user.id });
         if (!finance) {
-            // Initial seed if empty
             finance = await Finance.create({
-                revenue: 124500, expenses: 82300,
-                history: {
-                    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-                    revenue: [15000, 18000, 22000, 19000, 25000, 25500],
-                    expenses: [10000, 12000, 15000, 13000, 16000, 16300]
-                }
+                user: req.user.id,
+                revenue: 0,
+                expenses: 0,
+                history: { labels: [], revenue: [], expenses: [] }
             });
         }
         res.json(finance);
@@ -115,14 +155,22 @@ app.get('/api/finance', async (req, res) => {
     }
 });
 
-// Update totals
-app.put('/api/finance', async (req, res) => {
+app.put('/api/finance', auth, async (req, res) => {
     try {
-        const updated = await Finance.findOneAndUpdate({}, req.body, { new: true });
+        const updated = await Finance.findOneAndUpdate(
+            { user: req.user.id },
+            req.body,
+            { new: true, upsert: true }
+        );
         res.json(updated);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+// --- Health Check ---
+app.get('/api/health', (req, res) => {
+    res.json({ health: 'ok', database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected' });
 });
 
 const PORT = process.env.PORT || 5000;

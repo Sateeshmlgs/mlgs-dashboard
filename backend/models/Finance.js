@@ -7,7 +7,8 @@ const financeSchema = new mongoose.Schema({
         labels: [String],
         revenue: [Number],
         expenses: [Number]
-    }
+    },
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, unique: true }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Finance', financeSchema);

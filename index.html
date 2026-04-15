@@ -30,6 +30,9 @@
             --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
             --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
             --radius: 12px;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.3);
+            --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
         }
 
         * {
@@ -435,11 +438,139 @@
         .status-pill.online { color: #22c55e; border-color: rgba(34, 197, 94, 0.3); background: rgba(34, 197, 94, 0.1); }
         .status-pill.offline { color: #ef4444; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.1); }
         .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+        /* --- Glassmorphism Auth --- */
+        #auth-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .auth-bg-blobs {
+            position: absolute;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            z-index: -1;
+        }
+
+        .blob {
+            position: absolute;
+            background: var(--primary);
+            filter: blur(80px);
+            border-radius: 50%;
+            opacity: 0.4;
+            animation: move-blobs 20s infinite alternate;
+        }
+        .blob-1 { width: 400px; height: 400px; top: -100px; left: -100px; background: #22c55e; }
+        .blob-2 { width: 300px; height: 300px; bottom: -50px; right: -50px; background: #0ea5e9; animation-delay: -5s; }
+
+        @keyframes move-blobs {
+            from { transform: translate(0, 0) scale(1); }
+            to { transform: translate(100px, 50px) scale(1.2); }
+        }
+
+        .auth-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-radius: 24px;
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            width: 100%;
+            max-width: 440px;
+            padding: 2.5rem;
+            text-align: center;
+            animation: card-appear 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes card-appear {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .auth-logo { font-size: 2rem; font-weight: 800; color: var(--secondary); margin-bottom: 0.5rem; }
+        .auth-subtitle { color: var(--text-light); margin-bottom: 2rem; font-size: 0.95rem; }
+
+        .auth-tabs { display: flex; gap: 0.5rem; background: rgba(0,0,0,0.05); padding: 5px; border-radius: 12px; margin-bottom: 2rem; }
+        .auth-tab { flex: 1; padding: 10px; border-radius: 8px; border: none; background: transparent; cursor: pointer; font-weight: 600; color: var(--text-light); transition: all 0.3s; }
+        .auth-tab.active { background: white; color: var(--secondary); box-shadow: var(--shadow-sm); }
+
+        .auth-form { display: none; }
+        .auth-form.active { display: block; }
+
+        .auth-input-group { text-align: left; margin-bottom: 1.25rem; }
+        .auth-label { display: block; font-size: 0.85rem; font-weight: 700; color: var(--secondary); margin-bottom: 0.5rem; }
+        .auth-input { width: 100%; padding: 0.875rem 1rem; border-radius: 10px; border: 1px solid rgba(0,0,0,0.1); outline: none; transition: border-color 0.3s; background: rgba(255,255,255,0.5); }
+        .auth-input:focus { border-color: var(--primary); background: white; }
+
+        .auth-submit { width: 100%; padding: 1rem; background: var(--primary); color: white; border: none; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; transition: all 0.3s; margin-top: 1rem; }
+        .auth-submit:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(34, 197, 94, 0.3); }
+        
+        #logout-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 8px 16px; border-radius: 99px; cursor: pointer; font-size: 0.85rem; font-weight: 600; margin-top: 1rem; transition: all 0.3s; }
+        #logout-btn:hover { background: var(--danger); border-color: var(--danger); }
+        
+        .user-info { color: #94a3b8; font-size: 0.85rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
     </style>
 </head>
 <body>
 
+    <div id="auth-overlay">
+        <div class="auth-bg-blobs">
+            <div class="blob blob-1"></div>
+            <div class="blob blob-2"></div>
+        </div>
+        <div class="auth-card">
+            <div class="auth-logo">MLGS</div>
+            <div class="auth-subtitle">Home Accessories Inventory</div>
+            
+            <div class="auth-tabs">
+                <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
+                <button class="auth-tab" onclick="switchAuthTab('signup')">Sign Up</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form active">
+                <div class="auth-input-group">
+                    <label class="auth-label">Email Address</label>
+                    <input type="email" id="login-email" class="auth-input" placeholder="name@mlgs.com" required>
+                </div>
+                <div class="auth-input-group">
+                    <label class="auth-label">Password</label>
+                    <input type="password" id="login-pass" class="auth-input" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="auth-submit">Welcome Back</button>
+            </form>
+
+            <!-- Signup Form -->
+            <form id="signup-form" class="auth-form">
+                <div class="auth-input-group">
+                    <label class="auth-label">Business Name</label>
+                    <input type="text" id="signup-name" class="auth-input" placeholder="MLGS Official" required>
+                </div>
+                <div class="auth-input-group">
+                    <label class="auth-label">Email Address</label>
+                    <input type="email" id="signup-email" class="auth-input" placeholder="contact@mlgs.com" required>
+                </div>
+                <div class="auth-input-group">
+                    <label class="auth-label">Create Password</label>
+                    <input type="password" id="signup-pass" class="auth-input" placeholder="Minimum 6 characters" required>
+                </div>
+                <button type="submit" class="auth-submit">Start Journey</button>
+            </form>
+        </div>
+    </div>
+
     <header>
+        <div class="user-info" id="user-display" style="display: none;">
+            <i class="fas fa-user-circle"></i> <span id="user-name"></span>
+            <button id="logout-btn" onclick="logout()">Logout</button>
+        </div>
         <div id="connection-status" class="status-pill">
             <span class="status-dot"></span>
             <span class="status-text">Checking...</span>
@@ -551,7 +682,7 @@
 
                         <!-- Live Video Stream -->
                         <div id="camera-container" class="camera-preview-container">
-                            <video id="video" autoplay playsinline></video>
+                            <video id="video" autoplay playsinline muted></video>
                         </div>
 
                         <button type="button" id="start-camera-btn" class="capture-btn">
@@ -617,8 +748,8 @@
     </div>
 
     <script>
-        // API Endpoint (Change to your live URL if deployed)
-        const API_URL = 'http://localhost:5000/api';
+        // API Endpoint (Relative to the server if served from localhost:5000)
+        const API_URL = window.location.origin.includes('localhost') ? '/api' : 'http://localhost:5000/api';
 
         // Data State
         let dashboardData = {
@@ -629,33 +760,40 @@
             }
         };
 
+        const getHeaders = () => {
+            const token = localStorage.getItem('mlgs_token');
+            return {
+                'Content-Type': 'application/json',
+                'x-auth-token': token || ''
+            };
+        };
+
         async function loadData() {
             try {
-                // Check server health first
-                const healthRes = await fetch(`${API_URL}/health`).catch(() => ({ ok: false }));
-                
-                if (!healthRes.ok) throw new Error("Offline");
+                const token = localStorage.getItem('mlgs_token');
+                if (!token) return showAuth();
 
                 const [stocksRes, financeRes] = await Promise.all([
-                    fetch(`${API_URL}/stocks`),
-                    fetch(`${API_URL}/finance`)
+                    fetch(`${API_URL}/stocks`, { headers: getHeaders() }),
+                    fetch(`${API_URL}/finance`, { headers: getHeaders() })
                 ]);
                 
+                if (stocksRes.status === 401 || financeRes.status === 401) {
+                    return logout();
+                }
+
                 if (!stocksRes.ok || !financeRes.ok) throw new Error("Server Error");
 
                 dashboardData.stocks = await stocksRes.json();
                 dashboardData.finance = await financeRes.json();
                 
                 updateStatus(true);
-                // Cache to local storage
+                hideAuth();
                 localStorage.setItem('mlgs_backup', JSON.stringify(dashboardData));
             } catch (err) {
-
-                console.error("Failed to load from API, falling back to local storage:", err);
+                console.error("Failed to load:", err);
                 const backup = localStorage.getItem('mlgs_backup');
-                if (backup) {
-                    dashboardData = JSON.parse(backup);
-                }
+                if (backup) dashboardData = JSON.parse(backup);
                 updateStatus(false);
             } finally {
                 renderStocks();
@@ -686,7 +824,15 @@
 
         // Initialization
         document.addEventListener('DOMContentLoaded', () => {
-            loadData(); // Fetch from MongoDB
+            setupAuthHandlers();
+            const token = localStorage.getItem('mlgs_token');
+            if (token) {
+                hideAuth();
+                loadData();
+            } else {
+                showAuth();
+            }
+            
             setupTabs();
             setupSearch();
             setupVoice('mic-btn', 'stocks-search');
@@ -694,6 +840,92 @@
             setupModal();
             setupCamera();
         });
+
+        // --- Auth Handlers ---
+        function switchAuthTab(type) {
+            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+            
+            if (type === 'login') {
+                document.querySelectorAll('.auth-tab')[0].classList.add('active');
+                document.getElementById('login-form').classList.add('active');
+            } else {
+                document.querySelectorAll('.auth-tab')[1].classList.add('active');
+                document.getElementById('signup-form').classList.add('active');
+            }
+        }
+
+        function setupAuthHandlers() {
+            document.getElementById('login-form').onsubmit = async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-pass').value;
+                
+                try {
+                    const res = await fetch(`${API_URL}/auth/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, password })
+                    });
+                    const data = await res.json();
+                    if (data.token) {
+                        localStorage.setItem('mlgs_token', data.token);
+                        localStorage.setItem('mlgs_user', JSON.stringify(data.user));
+                        loadData();
+                    } else {
+                        alert(data.error || "Login failed");
+                    }
+                } catch (err) {
+                    alert("Server error connecting to Atlas.");
+                }
+            };
+
+            document.getElementById('signup-form').onsubmit = async (e) => {
+                e.preventDefault();
+                const name = document.getElementById('signup-name').value;
+                const email = document.getElementById('signup-email').value;
+                const password = document.getElementById('signup-pass').value;
+                
+                try {
+                    const res = await fetch(`${API_URL}/auth/register`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name, email, password })
+                    });
+                    const data = await res.json();
+                    if (data.token) {
+                        localStorage.setItem('mlgs_token', data.token);
+                        localStorage.setItem('mlgs_user', JSON.stringify(data.user));
+                        loadData();
+                    } else {
+                        alert(data.error || "Signup failed");
+                    }
+                } catch (err) {
+                    alert("Server error connecting to Atlas.");
+                }
+            };
+        }
+
+        function showAuth() {
+            document.getElementById('auth-overlay').style.display = 'flex';
+            document.getElementById('user-display').style.display = 'none';
+        }
+
+        function hideAuth() {
+            document.getElementById('auth-overlay').style.display = 'none';
+            const user = JSON.parse(localStorage.getItem('mlgs_user'));
+            if (user) {
+                document.getElementById('user-display').style.display = 'flex';
+                document.getElementById('user-name').innerText = user.name;
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('mlgs_token');
+            localStorage.removeItem('mlgs_user');
+            localStorage.removeItem('mlgs_backup');
+            location.reload();
+        }
 
         // Tab Switching
         function setupTabs() {
@@ -791,7 +1023,7 @@
                 try {
                     const response = await fetch(`${API_URL}/stocks`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: getHeaders(),
                         body: JSON.stringify(newItem)
                     });
                     const savedItem = await response.json();
@@ -859,10 +1091,11 @@
 
             startBtn.onclick = async () => {
                 try {
-                    stream = await navigator.mediaDevices.getUserMedia({ 
-                        video: { facingMode: 'environment' } 
-                    });
+                    const constraints = { video: { facingMode: 'environment' } };
+                    stream = await navigator.mediaDevices.getUserMedia(constraints)
+                        .catch(() => navigator.mediaDevices.getUserMedia({ video: true })); // Fallback for desktops
                     video.srcObject = stream;
+                    video.onloadedmetadata = () => video.play(); // Explicit play call
                     videoContainer.style.display = 'block';
                     startBtn.style.display = 'none';
                     snapBtn.style.display = 'block';
@@ -984,7 +1217,7 @@
             try {
                 const response = await fetch(`${API_URL}/stocks/${id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getHeaders(),
                     body: JSON.stringify(updatedData)
                 });
                 const updatedItem = await response.json();
@@ -1005,7 +1238,10 @@
             if (confirm("Are you sure you want to delete this product?")) {
                 const id = document.getElementById('edit-item-id').value;
                 try {
-                    await fetch(`${API_URL}/stocks/${id}`, { method: 'DELETE' });
+                    await fetch(`${API_URL}/stocks/${id}`, { 
+                        method: 'DELETE',
+                        headers: getHeaders()
+                    });
                     dashboardData.stocks = dashboardData.stocks.filter(s => s._id !== id);
                     localStorage.setItem('mlgs_backup', JSON.stringify(dashboardData)); // Update backup
                     renderStocks();
