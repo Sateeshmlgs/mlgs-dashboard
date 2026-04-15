@@ -44,7 +44,8 @@ mongoose.connect(process.env.MONGO_URI, {
 // Register
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+        const { name, password } = req.body;
+        const email = req.body.email.toLowerCase(); // Lowercase email
         let user = await User.findOne({ email });
         if (user) return res.status(400).json({ error: 'User already exists' });
 
@@ -65,12 +66,23 @@ app.post('/api/auth/register', async (req, res) => {
 // Login
 app.post('/api/auth/login', async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { password } = req.body;
+        const email = req.body.email.toLowerCase(); // Lowercase email
+        console.log(`Login attempt for: ${email}`);
+        
         const user = await User.findOne({ email });
-        if (!user) return res.status(400).json({ error: 'Invalid credentials' });
+        if (!user) {
+            console.log(`Login failed: User not found for ${email}`);
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
 
         const isMatch = await user.comparePassword(password);
-        if (!isMatch) return res.status(400).json({ error: 'Invalid credentials' });
+        if (!isMatch) {
+            console.log(`Login failed: Password mismatch for ${email}`);
+            return res.status(400).json({ error: 'Invalid credentials' });
+        }
+        
+        console.log(`Login success: ${email}`);
 
         const payload = { user: { id: user.id } };
         jwt.sign(payload, process.env.JWT_SECRET || 'mlgs_secret_key_2024', { expiresIn: '7d' }, (err, token) => {
