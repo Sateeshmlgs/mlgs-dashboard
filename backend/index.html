@@ -541,7 +541,7 @@
             <form id="login-form" class="auth-form active">
                 <div class="auth-input-group">
                     <label class="auth-label">Email Address</label>
-                    <input type="email" id="login-email" class="auth-input" placeholder="name@mlgs.com" required oninput="this.value = this.value.toLowerCase()">
+                    <input type="email" id="login-email" class="auth-input" placeholder="name@mlgs.com" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}" title="Please use only lowercase letters for your email.">
                 </div>
                 <div class="auth-input-group">
                     <label class="auth-label">Password</label>
@@ -558,7 +558,7 @@
                 </div>
                 <div class="auth-input-group">
                     <label class="auth-label">Email Address</label>
-                    <input type="email" id="signup-email" class="auth-input" placeholder="contact@mlgs.com" required oninput="this.value = this.value.toLowerCase()">
+                    <input type="email" id="signup-email" class="auth-input" placeholder="contact@mlgs.com" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}" title="Please use only lowercase letters for your email.">
                 </div>
                 <div class="auth-input-group">
                     <label class="auth-label">Create Password</label>
