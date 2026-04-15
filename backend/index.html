@@ -748,8 +748,8 @@
     </div>
 
     <script>
-        // API Endpoint (Relative to the server if served from localhost:5000)
-        const API_URL = window.location.origin.includes('localhost') ? '/api' : 'http://localhost:5000/api';
+        // API Endpoint (Relative to the server for best mobile compatibility)
+        const API_URL = window.location.origin + '/api';
 
         // Data State
         let dashboardData = {
@@ -876,7 +876,7 @@
                         alert(data.error || "Login failed");
                     }
                 } catch (err) {
-                    alert("Server error connecting to Atlas.");
+                    alert("Connection error: " + err.message);
                 }
             };
 
@@ -901,7 +901,7 @@
                         alert(data.error || "Signup failed");
                     }
                 } catch (err) {
-                    alert("Server error connecting to Atlas.");
+                    alert("Connection error: " + err.message);
                 }
             };
         }
