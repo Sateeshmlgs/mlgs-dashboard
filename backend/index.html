@@ -742,6 +742,26 @@
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label class="form-label">Update Product Photo</label>
+                    <div class="camera-section">
+                        <!-- Live Video Stream for Edit -->
+                        <div id="edit-camera-container" class="camera-preview-container">
+                            <video id="edit-video" autoplay playsinline muted></video>
+                        </div>
+
+                        <button type="button" id="edit-start-camera-btn" class="capture-btn">
+                            <i class="fas fa-camera"></i> Update Photo
+                        </button>
+                        <button type="button" id="edit-snap-btn" class="capture-btn" style="display:none; background: var(--primary);">
+                            <i class="fas fa-circle"></i> Capture Photo
+                        </button>
+                        <button type="button" id="edit-retake-btn" class="capture-btn" style="display:none; background: var(--danger);">
+                            <i class="fas fa-redo"></i> Retake
+                        </button>
+                    </div>
+                </div>
+
                 <div style="display: flex; gap: 1rem; margin-top: 2rem;">
                     <button type="submit" class="submit-btn">Update Product</button>
                     <button type="button" class="submit-btn" style="background: var(--danger); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);" onclick="deleteItem()">Delete</button>
@@ -842,6 +862,7 @@
             setupVoice('modal-mic-btn', 'new-name');
             setupModal();
             setupCamera();
+            setupEditCamera();
         });
 
         // --- Auth Handlers ---
@@ -1054,7 +1075,10 @@
             const closeEditBtn = document.getElementById('close-edit-modal');
             const editForm = document.getElementById('edit-stock-form');
 
-            closeEditBtn.onclick = () => editOverlay.classList.remove('active');
+            closeEditBtn.onclick = () => {
+                editOverlay.classList.remove('active');
+                stopCamera();
+            };
             
             editForm.onsubmit = (e) => {
                 e.preventDefault();
@@ -1085,6 +1109,60 @@
             const input = document.getElementById('edit-price');
             let val = parseFloat(input.value) + amount;
             input.value = Math.max(0, val);
+        }
+
+        let editCapturedImageData = null;
+
+        function setupEditCamera() {
+            const startBtn = document.getElementById('edit-start-camera-btn');
+            const snapBtn = document.getElementById('edit-snap-btn');
+            const retakeBtn = document.getElementById('edit-retake-btn');
+            const video = document.getElementById('edit-video');
+            const canvas = document.getElementById('snapshot-canvas');
+            const videoContainer = document.getElementById('edit-camera-container');
+            const previewImg = document.getElementById('detail-image');
+
+            startBtn.onclick = async () => {
+                try {
+                    const constraints = { video: { facingMode: 'environment' } };
+                    stream = await navigator.mediaDevices.getUserMedia(constraints)
+                        .catch(() => navigator.mediaDevices.getUserMedia({ video: true }));
+                    video.srcObject = stream;
+                    video.onloadedmetadata = () => video.play();
+                    videoContainer.style.display = 'block';
+                    startBtn.style.display = 'none';
+                    snapBtn.style.display = 'block';
+                } catch (err) {
+                    alert("Unable to access camera. Please check permissions.");
+                }
+            };
+
+            snapBtn.onclick = () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+                editCapturedImageData = canvas.toDataURL('image/jpeg', 0.6);
+                
+                previewImg.src = editCapturedImageData;
+                previewImg.parentElement.style.display = 'block';
+                videoContainer.style.display = 'none';
+                snapBtn.style.display = 'none';
+                retakeBtn.style.display = 'block';
+                stopCamera();
+            };
+
+            retakeBtn.onclick = () => {
+                resetEditCameraUI();
+                startBtn.click();
+            };
+        }
+
+        function resetEditCameraUI() {
+            document.getElementById('edit-camera-container').style.display = 'none';
+            document.getElementById('edit-start-camera-btn').style.display = 'block';
+            document.getElementById('edit-snap-btn').style.display = 'none';
+            document.getElementById('edit-retake-btn').style.display = 'none';
+            editCapturedImageData = null;
         }
 
         // Camera Logic
@@ -1214,13 +1292,15 @@
             }
 
             document.getElementById('edit-modal-overlay').classList.add('active');
+            resetEditCameraUI();
         }
 
         async function saveProductEdits() {
             const id = document.getElementById('edit-item-id').value;
             const updatedData = {
                 quantity: parseInt(document.getElementById('edit-qty').value),
-                price: parseFloat(document.getElementById('edit-price').value)
+                price: parseFloat(document.getElementById('edit-price').value),
+                image: editCapturedImageData || undefined
             };
 
             try {
