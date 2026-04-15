@@ -1029,8 +1029,14 @@
                         headers: getHeaders(),
                         body: JSON.stringify(newItem)
                     });
-                    const savedItem = await response.json();
-                    dashboardData.stocks.unshift(savedItem);
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(data.error || "Server failed to save product");
+                    }
+                    
+                    dashboardData.stocks.unshift(data);
                     localStorage.setItem('mlgs_backup', JSON.stringify(dashboardData)); // Update backup
                     
                     renderStocks();
@@ -1039,7 +1045,7 @@
                     addForm.reset();
                     resetCameraUI();
                 } catch (err) {
-                    alert("Error saving to database.");
+                    alert("Save Error: " + err.message);
                 }
             };
 
@@ -1111,7 +1117,7 @@
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
                 canvas.getContext('2d').drawImage(video, 0, 0);
-                capturedImageData = canvas.toDataURL('image/png');
+                capturedImageData = canvas.toDataURL('image/jpeg', 0.6); // Compressed JPEG
                 
                 previewImg.src = capturedImageData;
                 previewContainer.style.display = 'block';
