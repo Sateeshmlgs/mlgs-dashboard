@@ -44,8 +44,10 @@ mongoose.connect(process.env.MONGO_URI, {
 // Register
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const { name, password } = req.body;
-        const email = req.body.email.toLowerCase(); // Lowercase email
+        const name = req.body.name.trim();
+        const password = req.body.password.trim();
+        const email = req.body.email.trim().toLowerCase(); // Trim and lowercase
+        
         let user = await User.findOne({ email });
         if (user) return res.status(400).json({ error: 'User already exists' });
 
@@ -66,12 +68,13 @@ app.post('/api/auth/register', async (req, res) => {
 // Login
 app.post('/api/auth/login', async (req, res) => {
     try {
-        const { email, password } = req.body;
-        console.log(`Login attempt for: ${email}`);
+        const email = req.body.email.trim();
+        const password = req.body.password.trim();
+        console.log(`Login attempt for: [${email}]`); // Wrapped in brackets to see spaces in logs
         
         const user = await User.findOne({ email: new RegExp(`^${email}$`, 'i') });
         if (!user) {
-            console.log(`Login failed: User not found for ${email}`);
+            console.log(`Login failed: User not found for [${email}]`);
             return res.status(400).json({ error: 'Invalid credentials' });
         }
 
