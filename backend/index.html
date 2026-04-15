@@ -1254,7 +1254,7 @@
 
         function calculateStatus(qty) {
             if (qty === 0) return { label: 'Out of Stock', class: 'badge-danger', hex: '#ef4444' };
-            if (qty <= 5) return { label: 'Low Stock', class: 'badge-warning', hex: '#f59e0b' };
+            if (qty <= 5) return { label: 'Low Stock', class: 'badge-danger', hex: '#ef4444' };
             return { label: 'Available', class: 'badge-success', hex: '#22c55e' };
         }
 
