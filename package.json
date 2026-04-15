@@ -1,0 +1,11 @@
+{
+  "name": "mlgs-dashboard-root",
+  "version": "1.0.0",
+  "description": "MLGS Home Accessories Inventory Dashboard",
+  "scripts": {
+    "start": "cd backend && npm start",
+    "dev": "start index.html && cd backend && npm start",
+    "install-all": "cd backend && npm install",
+    "clean-git": "git rm -r --cached backend/node_modules backend/.env && git add . && git commit -m \"chore: clean up tracked node_modules and env\""
+  }
+}

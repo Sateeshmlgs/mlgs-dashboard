@@ -631,6 +631,11 @@
 
         async function loadData() {
             try {
+                // Check server health first
+                const healthRes = await fetch(`${API_URL}/health`).catch(() => ({ ok: false }));
+                
+                if (!healthRes.ok) throw new Error("Offline");
+
                 const [stocksRes, financeRes] = await Promise.all([
                     fetch(`${API_URL}/stocks`),
                     fetch(`${API_URL}/finance`)
@@ -645,6 +650,7 @@
                 // Cache to local storage
                 localStorage.setItem('mlgs_backup', JSON.stringify(dashboardData));
             } catch (err) {
+
                 console.error("Failed to load from API, falling back to local storage:", err);
                 const backup = localStorage.getItem('mlgs_backup');
                 if (backup) {

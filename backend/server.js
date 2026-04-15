@@ -12,11 +12,42 @@ app.use(cors());
 mongoose.connect(process.env.MONGO_URI, {
     serverSelectionTimeoutMS: 5000,
 })
-    .then(() => console.log('Connected to MongoDB Atlas'))
+    .then(() => {
+        console.log('Connected to MongoDB Atlas');
+        seedStocks();
+    })
     .catch(err => {
         console.error('MongoDB connection error:', err);
         process.exit(1); // Exit if cannot connect
     });
+
+// --- Health Check ---
+app.get('/api/health', (req, res) => {
+    res.json({ 
+        health: 'ok', 
+        database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+        timestamp: new Date()
+    });
+});
+
+// Seed Stocks if empty
+async function seedStocks() {
+    try {
+        const count = await Stock.countDocuments();
+        if (count === 0) {
+            await Stock.create([
+                { name: "Luxury Silk CurtainsSet (Beige)", quantity: 12, price: 85 },
+                { name: "Aromatic Sandalwood Candle", quantity: 45, price: 25 },
+                { name: "Handcrafted Ceramic Vase", quantity: 8, price: 55 },
+                { name: "LED Ambient Mood Lamp", quantity: 20, price: 40 }
+            ]);
+            console.log("Database seeded with sample MLGS products.");
+        }
+    } catch (err) {
+        console.error("Seeding error:", err);
+    }
+}
+
 
 // --- Stocks API ---
 
