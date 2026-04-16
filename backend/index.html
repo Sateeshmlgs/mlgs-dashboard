@@ -519,6 +519,27 @@
         #logout-btn:hover { background: var(--danger); border-color: var(--danger); }
         
         .user-info { color: #94a3b8; font-size: 0.85rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+        /* --- Search Result Headers --- */
+        .search-result-header {
+            grid-column: 1 / -1;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--secondary);
+            padding: 1rem 0;
+            border-bottom: 2px solid var(--primary-light);
+            margin-top: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .search-result-header i { color: var(--primary); }
+        .search-result-header.remaining {
+            border-bottom-color: var(--border);
+            margin-top: 2.5rem;
+            color: var(--text-light);
+        }
+        .search-result-header.remaining i { color: var(--text-light); }
     </style>
 </head>
 <body>
@@ -535,6 +556,7 @@
             <div class="auth-tabs">
                 <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
                 <button class="auth-tab" onclick="switchAuthTab('signup')">Sign Up</button>
+                <button class="auth-tab" id="tab-verify" style="display: none;" onclick="switchAuthTab('verify')">Verify</button>
             </div>
 
             <!-- Login Form -->
@@ -564,7 +586,18 @@
                     <label class="auth-label">Create Password</label>
                     <input type="password" id="signup-pass" class="auth-input" placeholder="Minimum 6 characters" required>
                 </div>
-                <button type="submit" class="auth-submit">Start Journey</button>
+                <button type="submit" class="auth-submit" id="signup-btn">Get Verification Code</button>
+            </form>
+
+            <!-- Verification Form -->
+            <form id="verify-form" class="auth-form">
+                <div class="auth-subtitle">We sent a 6-digit code to your email.</div>
+                <div class="auth-input-group">
+                    <label class="auth-label">Verification Code</label>
+                    <input type="text" id="verify-code" class="auth-input" placeholder="123456" required maxlength="6" pattern="\d{6}">
+                </div>
+                <button type="submit" class="auth-submit">Verify & Create Account</button>
+                <button type="button" class="auth-submit" style="background: transparent; color: var(--text-light); border: 1px solid var(--border); margin-top: 10px;" onclick="switchAuthTab('signup')">Back to Signup</button>
             </form>
         </div>
     </div>
@@ -771,8 +804,10 @@
     </div>
 
     <script>
-        // API Endpoint (Relative to the server for best mobile compatibility)
-        const API_URL = window.location.origin + '/api';
+        // Detect if running as a file or on a server
+        const API_URL = (window.location.protocol === 'file:') 
+            ? 'http://localhost:5000/api' 
+            : window.location.origin + '/api';
 
         // Data State
         let dashboardData = {
@@ -873,13 +908,18 @@
             if (type === 'login') {
                 document.querySelectorAll('.auth-tab')[0].classList.add('active');
                 document.getElementById('login-form').classList.add('active');
-            } else {
+            } else if (type === 'signup') {
                 document.querySelectorAll('.auth-tab')[1].classList.add('active');
                 document.getElementById('signup-form').classList.add('active');
+            } else if (type === 'verify') {
+                document.getElementById('tab-verify').style.display = 'block';
+                document.getElementById('tab-verify').classList.add('active');
+                document.getElementById('verify-form').classList.add('active');
             }
         }
 
         function setupAuthHandlers() {
+            // Login Handler
             document.getElementById('login-form').onsubmit = async (e) => {
                 e.preventDefault();
                 const email = document.getElementById('login-email').value;
@@ -904,25 +944,59 @@
                 }
             };
 
+            // Signup Handler (Triggers OTP)
             document.getElementById('signup-form').onsubmit = async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('signup-email').value;
+                const signupBtn = document.getElementById('signup-btn');
+                
+                signupBtn.disabled = true;
+                signupBtn.innerText = "Sending Code...";
+
+                try {
+                    const res = await fetch(`${API_URL}/auth/send-otp`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        switchAuthTab('verify');
+                    } else {
+                        alert(data.error || "Failed to send code");
+                    }
+                } catch (err) {
+                    alert("Connection error: " + err.message);
+                } finally {
+                    signupBtn.disabled = false;
+                    signupBtn.innerText = "Get Verification Code";
+                }
+            };
+
+            // Verification Handler (Final Registration)
+            document.getElementById('verify-form').onsubmit = async (e) => {
                 e.preventDefault();
                 const name = document.getElementById('signup-name').value;
                 const email = document.getElementById('signup-email').value;
                 const password = document.getElementById('signup-pass').value;
-                
+                const otp = document.getElementById('verify-code').value;
+
                 try {
                     const res = await fetch(`${API_URL}/auth/register`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name, email, password })
+                        body: JSON.stringify({ name, email, password, otp })
                     });
                     const data = await res.json();
-                    if (data.token) {
-                        sessionStorage.setItem('mlgs_token', data.token);
-                        sessionStorage.setItem('mlgs_user', JSON.stringify(data.user));
-                        loadData();
+                    if (res.ok) {
+                        alert("Account verified and created! Please login.");
+                        switchAuthTab('login');
+                        // Clear signup fields
+                        document.getElementById('signup-form').reset();
+                        document.getElementById('verify-form').reset();
+                        document.getElementById('tab-verify').style.display = 'none';
                     } else {
-                        alert(data.error || "Signup failed");
+                        alert(data.error || "Verification failed");
                     }
                 } catch (err) {
                     alert("Connection error: " + err.message);
@@ -985,8 +1059,17 @@
             const searchInput = document.getElementById('stocks-search');
             searchInput.addEventListener('input', (e) => {
                 const term = e.target.value.toLowerCase();
-                const filtered = dashboardData.stocks.filter(s => s.name.toLowerCase().includes(term));
-                renderStocks(filtered);
+                if (!term) {
+                    renderStocks();
+                    return;
+                }
+                
+                // Partition stocks into matches and non-matches
+                const matches = dashboardData.stocks.filter(s => s.name.toLowerCase().includes(term));
+                const remaining = dashboardData.stocks.filter(s => !s.name.toLowerCase().includes(term));
+                
+                // Combine them so matches appear first
+                renderStocks([...matches, ...remaining], term);
             });
         }
 
@@ -1228,7 +1311,7 @@
         }
 
         // Render Functions
-        function renderStocks(data = dashboardData.stocks) {
+        function renderStocks(data = dashboardData.stocks, searchTerm = '') {
             const container = document.getElementById('stocks-container');
             container.innerHTML = '';
             
@@ -1236,14 +1319,39 @@
                 container.innerHTML = `
                     <div style="grid-column: 1/-1; text-align: center; padding: 4rem 2rem; background: white; border-radius: 12px; border: 2px dashed var(--border);">
                         <i class="fas fa-box-open" style="font-size: 3rem; color: var(--text-light); margin-bottom: 1rem; display: block;"></i>
-                        <h3 style="color: var(--secondary); margin-bottom: 0.5rem;">Your Inventory is Empty</h3>
-                        <p style="color: var(--text-light);">Click "Add Item" and take a photo to start tracking.</p>
+                        <h3 style="color: var(--secondary); margin-bottom: 0.5rem;">No Items Found</h3>
+                        <p style="color: var(--text-light);">Try a different search or add a new item.</p>
                     </div>
                 `;
                 return;
             }
 
+            let hasMatchesHeader = false;
+            let hasRemainingHeader = false;
+
             data.forEach(item => {
+                const isMatch = searchTerm && item.name.toLowerCase().includes(searchTerm.toLowerCase());
+                
+                // Add header for Search Results
+                if (searchTerm && isMatch && !hasMatchesHeader) {
+                    container.innerHTML += `
+                        <div class="search-result-header">
+                            <i class="fas fa-search"></i> Top Matches
+                        </div>
+                    `;
+                    hasMatchesHeader = true;
+                }
+
+                // Add header for Remaining Items
+                if (searchTerm && !isMatch && !hasRemainingHeader) {
+                    container.innerHTML += `
+                        <div class="search-result-header remaining">
+                            <i class="fas fa-layer-group"></i> All Other Items
+                        </div>
+                    `;
+                    hasRemainingHeader = true;
+                }
+
                 const status = calculateStatus(item.quantity);
                 const itemPrice = item.price || 0;
                 const totalValue = (item.quantity * itemPrice).toLocaleString();

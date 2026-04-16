@@ -8,6 +8,8 @@ const auth = require('./middleware/auth');
 const Stock = require('./models/Stock');
 const Finance = require('./models/Finance');
 const User = require('./models/User');
+const OTP = require('./models/OTP');
+const nodemailer = require('nodemailer');
 
 const path = require('path');
 const FRONTEND_PATH = path.resolve(__dirname);
@@ -15,6 +17,15 @@ const FRONTEND_PATH = path.resolve(__dirname);
 const app = express();
 app.use(express.json({ limit: '50mb' }));
 app.use(cors());
+
+// --- Email Config ---
+const transporter = nodemailer.createTransport({
+    service: 'gmail', // You can change this to your provider
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
 
 // Serve static files from the root directory
 app.use(express.static(FRONTEND_PATH));
@@ -41,26 +52,76 @@ mongoose.connect(process.env.MONGO_URI, {
 
 // --- Auth Routes ---
 
+// Send OTP
+app.post('/api/auth/send-otp', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'Email is required' });
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        // Save OTP to DB
+        await OTP.findOneAndUpdate(
+            { email },
+            { otp, createdAt: Date.now() },
+            { upsert: true, new: true }
+        );
+
+        // Send Email
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: email,
+            subject: 'Verification Code - MLGS Dashboard',
+            text: `Your verification code is: ${otp}. It will expire in 5 minutes.`
+        };
+
+        await transporter.sendMail(mailOptions);
+        res.json({ message: 'OTP sent successfully' });
+    } catch (err) {
+        console.error("OTP Error:", err);
+        res.status(500).json({ error: 'Failed to send OTP. Please check your email credentials.' });
+    }
+});
+
+// Verify OTP
+app.post('/api/auth/verify-otp', async (req, res) => {
+    try {
+        const { email, otp } = req.body;
+        const record = await OTP.findOne({ email, otp });
+        
+        if (!record) {
+            return res.status(400).json({ error: 'Invalid or expired verification code' });
+        }
+        
+        res.json({ success: true, message: 'OTP verified' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Register
 app.post('/api/auth/register', async (req, res) => {
     try {
-        const name = req.body.name.trim();
-        const password = req.body.password.trim();
-        const email = req.body.email.trim().toLowerCase(); // Trim and lowercase
+        const { name, email, password, otp } = req.body;
         
+        // Final OTP check before registration
+        const otpRecord = await OTP.findOne({ email, otp });
+        if (!otpRecord) {
+            return res.status(400).json({ error: 'Please verify your email first' });
+        }
+
         let user = await User.findOne({ email });
         if (user) return res.status(400).json({ error: 'User already exists' });
 
         user = new User({ name, email, password });
         await user.save();
 
-        const payload = { user: { id: user.id } };
-        jwt.sign(payload, process.env.JWT_SECRET || 'mlgs_secret_key_2024', { expiresIn: '7d' }, (err, token) => {
-            if (err) throw err;
-            res.json({ token, user: { name: user.name, email: user.email } });
-        });
+        // Delete OTP after success
+        await OTP.deleteOne({ email });
+
+        res.json({ success: true, message: 'Account created! Please login.' });
     } catch (err) {
-        console.error("Registration Error Stack:", err.stack);
+        console.error("Registration Error:", err);
         res.status(500).json({ error: err.message });
     }
 });
